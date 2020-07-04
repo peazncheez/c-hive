@@ -34,13 +34,13 @@ typedef struct {
     int x;
     int y;
 } point;
-static point NOT_PLACED = {.x =  INT_MIN, .y =  INT_MIN};
 
 typedef struct {
     color color;
     piece_type type;
     int piece_num;
-    point point;
+    // null for not yet placed
+    point* point;
 } piece;
 
 piece* getInitialPieces(void);
