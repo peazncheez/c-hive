@@ -9,13 +9,17 @@
 #include "piece.h"
 #include <stdlib.h>
 
+void destroy_piece(piece* piece) {
+    free(piece->point);
+    free(piece);
+}
 
-int getStartingPieceCountPerColor() {
+int get_starting_piece_count_per_color() {
     return sum(PIECE_TYPE_TO_INITIAL_COUNT_PER_COLOR, NUM_PIECE_TYPES);
 }
 
-piece* getInitialPieces() {
-    int total_count_per_player = getStartingPieceCountPerColor();
+piece* get_initial_pieces() {
+    int total_count_per_player = get_starting_piece_count_per_color();
     piece *initial_pieces = malloc(sizeof(piece) * total_count_per_player);
 
     int cur_color = 0;

@@ -43,7 +43,9 @@ typedef struct {
     point* point;
 } piece;
 
-piece* getInitialPieces(void);
-int getStartingPieceCountPerColor(void);
+void destroy_piece(piece* piece);
+
+piece* get_initial_pieces(void);
+int get_starting_piece_count_per_color(void);
 
 #endif /* piece_h */

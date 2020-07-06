@@ -16,20 +16,6 @@
 
 static int BOARD_PADDING = 2;
 
-//int get_x(void* void_piece) {
-//    piece* as_piece = (piece*) void_piece;
-//    return as_piece->point.x;
-//}
-//
-//int get_y(void* void_piece) {
-//    piece* as_piece = (piece*) void_piece;
-//    return as_piece->point.y;
-//}
-//
-//bool is_placed(int x, int y) {
-//    return x != NOT_PLACED.x || y != NOT_PLACED.y;
-//}
-
 void print_board(piece* pieces, int num_pieces) {
     int cur_piece_index;
     int min_x = INT_MAX;
@@ -101,25 +87,6 @@ void print_board(piece* pieces, int num_pieces) {
     printf("\n");
 }
 
-// returns new head
-point_list_node* prepend_point_list(point_list_node* head, point* p) {
-    point_list_node* new_head = malloc(sizeof(point_list_node));
-    new_head->point = p;
-    new_head->next = head == NULL ? NULL : head;
-    return new_head;
-}
-
-bool contains_point(point_list_node* head, point p) {
-    point_list_node* cur_node = head;
-    while (cur_node != NULL) {
-        if (cur_node->point->x == p.x && cur_node->point->y == p.y) {
-            return true;
-        }
-        cur_node = cur_node->next;
-    }
-    return false;
-}
-
 point* translate_point(point p, board_dir dir) {
     int x = p.x;
     int y = p.y;
@@ -169,11 +136,76 @@ point_list_node* get_neighbors(point p) {
     return neighbor_list_head;
 }
 
+point_list_node* get_occupied_neighbors(point p, point_list_node* piece_positions) {
+    point_list_node* neighbors = get_neighbors(p);
+    point_list_node* occupied_neighbors = intersect_lists(neighbors, piece_positions);
+    destroy_list(neighbors);
+    return occupied_neighbors;
+}
+
+// TODO filter out places where other pieces are
 point_list_node* get_possible_queen_moves(point p) {
     return get_neighbors(p);
 }
 
-point_list_node* get_possible_grasshopper_moves(point p, point_list_node* other_piece_positions) {
+point_list_node* get_possible_beetle_moves(point p) {
+    return get_neighbors(p);
+}
+
+// spider_path contains all points on the path leading up to p, includes the initial position (if p != initial position), and must be sorted from most recent to least recent
+point_list_node* get_possible_spider_moves_helper(point p, point_list_node* spider_path, point_list_node* other_piece_positions) {
+    if (size(spider_path) == 3) {
+        return create_list_and_point(p);
+    }
+    
+    point_list_node* next_moves = NULL;
+    
+    point_list_node* occupied_neighbors_at_prev_space = get_occupied_neighbors(p, other_piece_positions);
+    point_list_node* next_spider_spaces = get_neighbors(p);
+    point_list_node* cur_space = next_spider_spaces;
+    while (cur_space != NULL) {
+        point cur_point = *(cur_space->point);
+        point_list_node* occupied_neighbors = get_occupied_neighbors(cur_point, other_piece_positions);
+        
+        /**
+         Space is ineligible if:
+         1) it backtracks on the path the spider is taking as part of this move
+         2) another piece is present at this location
+         3) this space doesn't have any neighbors (spider must remain in direct contact with the hive)
+         4) it does not remain in direct contact with a piece that it was previously in direct contact with (we use this as a way to tell if the spider is "moving around" its neighbors instead of jumping "across" and acquiring an entirely new set of neighbors)
+         */
+        if (!contains_point(spider_path, cur_point)
+            && !contains_point(other_piece_positions, cur_point)
+            && !is_empty(occupied_neighbors)
+            // TODO - deal with empty list intersection
+            && intersect(occupied_neighbors_at_prev_space, occupied_neighbors)) {
+            
+            point_list_node* new_spider_path = prepend_point_list(spider_path, create_point(p));
+            point_list_node* next_moves_for_space = get_possible_spider_moves_helper(cur_point, new_spider_path, other_piece_positions);
+            
+            // maybe faster to prepend to next_moves?
+            next_moves = append_list(next_moves, next_moves_for_space);
+            
+            destroy_node_and_point(new_spider_path);
+        }
+        
+        destroy_list(occupied_neighbors);
+        cur_space = cur_space->next;
+    }
+    
+    destroy_list(occupied_neighbors_at_prev_space);
+    destroy_list(next_spider_spaces);
+    return next_moves;
+}
+
+point_list_node* get_possible_spider_moves(point p, point_list_node* all_piece_positions) {
+    point_list_node* other_piece_positions = exclude_nodes_with_point(all_piece_positions, p);
+    point_list_node* moves = get_possible_spider_moves_helper(p, NULL, other_piece_positions);
+    destroy_list(other_piece_positions);
+    return moves;
+}
+
+point_list_node* get_possible_grasshopper_moves(point p, point_list_node* all_piece_positions) {
     point_list_node* possible_moves = NULL;
     
     for (int cur_board_dir = 0; cur_board_dir < NUM_BOARD_DIR; cur_board_dir++) {
@@ -185,7 +217,7 @@ point_list_node* get_possible_grasshopper_moves(point p, point_list_node* other_
             cur_hop_pos = *new_hop_pos;
             free(new_hop_pos);
 
-            bool piece_at_cur_hop_pos = contains_point(other_piece_positions, cur_hop_pos);
+            bool piece_at_cur_hop_pos = contains_point(all_piece_positions, cur_hop_pos);
             if (!piece_at_cur_hop_pos) {
                 // otherwise, no initial piece to jump over
                 if (!is_first_iteration) {
@@ -204,10 +236,17 @@ point_list_node* get_possible_grasshopper_moves(point p, point_list_node* other_
 }
 
 
-point_list_node* get_possible_moves(piece* piece_to_move) {
+point_list_node* get_possible_moves(piece* piece_to_move, point_list_node* all_piece_positions) {
+    point piece_to_move_pos = *(piece_to_move->point);
     switch (piece_to_move->type) {
         case QUEEN:
-            return get_possible_queen_moves(*(piece_to_move->point));
+            return get_possible_queen_moves(piece_to_move_pos);
+        case BEETLE:
+            return get_possible_beetle_moves(piece_to_move_pos);
+        case GRASSHOPER:
+            return get_possible_grasshopper_moves(piece_to_move_pos, all_piece_positions);
+        case SPIDER:
+            return get_possible_spider_moves(piece_to_move_pos, all_piece_positions);
         default:
             return NULL;
     }
@@ -215,20 +254,8 @@ point_list_node* get_possible_moves(piece* piece_to_move) {
 
 // assumes piece_to_move has been placed already
 point_list_node* get_legal_moves(piece* piece_to_move, piece* placed_pieces, int num_placed_pieces) {
-    point_list_node* possible_moves = get_possible_moves(piece_to_move);
+    point_list_node* cur_piece_positions = to_point_list(placed_pieces, num_placed_pieces);
+    point_list_node* possible_moves = get_possible_moves(piece_to_move, cur_piece_positions);
     
     return possible_moves;
 }
-
-
-
-
-
-//int compare( const void* a, const void* b){
-//     int int_a = * ( (int*) a );
-//     int int_b = * ( (int*) b );
-//
-//     if ( int_a == int_b ) return 0;
-//     else if ( int_a < int_b ) return -1;
-//     else return 1;
-//}
