@@ -215,7 +215,6 @@ bool test_spider_moves() {
             .next = & (point_list_node){
                 .point = & (point) {.x =  3, .y = 1},
                 .next = & (point_list_node){
-                    // to the right of black queen, pretty sure this one is legal
                     .point = & (point) {.x =  1, .y = 4},
                     .next = NULL
 
@@ -231,11 +230,155 @@ bool test_spider_moves() {
     }
     destroy_list(spider_moves);
     
+    // test that no dupes are produced
+    other_piece_positions = & (point_list_node){
+        // spider
+        .point = & (point) {.x =  3, .y = 2},
+        .next = & (point_list_node){
+            // bee
+            .point = & (point) {.x =  3, .y = 3},
+            .next = & (point_list_node){
+                // beetle
+                .point = & (point) {.x =  3, .y = 4},
+                .next = & (point_list_node){
+                    // ant
+                    .point = & (point) {.x =  2, .y = 5},
+                    .next = & (point_list_node){
+                        // grasshopper
+                        .point = & (point) {.x =  1, .y = 5},
+                        .next = & (point_list_node){
+                            // grasshopper
+                            .point = & (point) {.x =  0, .y = 5},
+                            .next = & (point_list_node){
+                                // bee
+                                .point = & (point) {.x =  0, .y = 4},
+                                .next = & (point_list_node){
+                                    // ant
+                                    .point = & (point) {.x =  0, .y = 3},
+                                    .next = & (point_list_node){
+                                        // beetle
+                                        .point = & (point) {.x =  1, .y = 2},
+                                        .next = & (point_list_node){
+                                            // made up for test
+                                            .point = & (point) {.x =  1, .y = 4},
+                                            .next = NULL,
+                                        },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+        },
+    };
+    
+    spider_pos = (point) {.x = 2, .y = 1};
+    // if dupe logic weren't present, would get 2 (2, 4)s
+    expected_moves = & (point_list_node){
+            .point = & (point) {.x =  2, .y = 4},
+            .next = & (point_list_node){
+                .point = & (point) {.x =  0, .y = 1},
+                .next = & (point_list_node){
+                    .point = & (point) {.x =  4, .y = 3},
+                    .next = NULL
+                },
+
+            },
+    };
+
+    spider_moves = get_possible_spider_moves(spider_pos, other_piece_positions);
+    if (!test_equal_ignore_order(expected_moves, spider_moves, "Failed spider moves for 2,1")) {
+        destroy_list(spider_moves);
+        return false;
+    }
+    destroy_list(spider_moves);
+    
+    return true;
+}
+
+bool test_ant_moves() {
+    printf("Testing ant moves \n");
+    
+    // https://www.fgbradleys.com/rules/rules3/HiveRules.pdf
+    point_list_node* other_piece_positions = & (point_list_node){
+        // spider
+        .point = & (point) {.x =  3, .y = 3},
+        .next = & (point_list_node){
+            // bee
+            .point = & (point) {.x =  4, .y = 3},
+            .next = & (point_list_node){
+                // beetle
+                .point = & (point) {.x =  3, .y = 2},
+                .next = & (point_list_node){
+                    // ant
+                    .point = & (point) {.x =  3, .y = 1},
+                    .next = & (point_list_node){
+                        // grasshopper
+                        .point = & (point) {.x =  5, .y = 2},
+                        .next = NULL,
+                    },
+                },
+            },
+        },
+    };
+    
+    point ant_pos = {.x = 4, .y = 4};
+    point_list_node* expected_moves = & (point_list_node){
+        .point = & (point) {.x =  3, .y = 4},
+        .next = & (point_list_node){
+            .point = & (point) {.x =  2, .y = 3},
+            .next = & (point_list_node){
+                .point = & (point) {.x =  2, .y = 2},
+                .next = & (point_list_node){
+                    .point = & (point) {.x =  2, .y = 1},
+                    .next = & (point_list_node){
+                        .point = & (point) {.x =  3, .y = 0},
+                        .next = & (point_list_node){
+                            .point = & (point) {.x =  4, .y = 0},
+                            .next = & (point_list_node){
+                                .point = & (point) {.x =  4, .y = 1},
+                                .next = & (point_list_node){
+                                    .point = & (point) {.x =  5, .y = 1},
+                                    .next = & (point_list_node){
+                                        .point = & (point) {.x =  6, .y = 2},
+                                        .next = & (point_list_node){
+                                            .point = & (point) {.x =  5, .y = 3},
+                                            .next = & (point_list_node){
+                                                .point = & (point) {.x =  5, .y = 4},
+                                                .next = & (point_list_node){
+                                                    // this is illegal, need to filter out with gates
+                                                    .point = & (point) {.x =  4, .y = 2},
+                                                    .next = NULL
+                                                },
+                                            },
+                                        },
+
+                                    },
+                                },
+                            },
+
+                        },
+                    },
+                },
+
+            },
+        },
+    };
+
+    point_list_node* ant_moves = get_possible_ant_moves(ant_pos, other_piece_positions);
+    if (!test_equal_ignore_order(expected_moves, ant_moves, "Failed ant moves for 4,4")) {
+        destroy_list(ant_moves);
+        return false;
+    }
+    destroy_list(ant_moves);
     return true;
 }
 
 int main(int argc, const char * argv[]) {
     printf("Starting tests\n");
+    point_list_node* a = NULL;
+    printf("%d", &a);
     piece* initial_pieces = get_initial_pieces();
     int num_pieces = get_starting_piece_count_per_color()*NUM_COLORS;
     
@@ -245,25 +388,29 @@ int main(int argc, const char * argv[]) {
     }
 
     print_board(initial_pieces, num_pieces);
-    
+
     initial_pieces[0].point = & (point) {.x =  2, .y = 2};
     initial_pieces[1].point = & (point) {.x =  3, .y = 3};
     initial_pieces[15].point = & (point) {.x =  -5, .y = -4};
-
     print_board(initial_pieces, num_pieces);
+
     // using a single free since it was allocated with a single malloc
     // also, not freeing the embedded point* since all points were not created with malloc
     free(initial_pieces);
-    
+
     if (!test_get_neighbors()) {
         return 1;
     }
-    
+
     if(!test_grasshopper_moves()) {
         return 1;
     }
-    
+
     if(!test_spider_moves()) {
+        return 1;
+    }
+    
+    if(!test_ant_moves()) {
         return 1;
     }
     

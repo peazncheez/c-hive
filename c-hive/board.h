@@ -42,6 +42,9 @@ point_list_node* get_possible_grasshopper_moves(point p, point_list_node* other_
 // visible for testing
 point_list_node* get_possible_spider_moves(point p, point_list_node* other_piece_positions);
 
+// visible for testing
+point_list_node* get_possible_ant_moves(point p, point_list_node* other_piece_positions);
+
 int size(point_list_node* list);
 
 bool contains_point(point_list_node* head, point p);

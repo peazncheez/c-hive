@@ -29,6 +29,8 @@ typedef enum {
 } piece_type;
 static int PIECE_TYPE_TO_INITIAL_COUNT_PER_COLOR[NUM_PIECE_TYPES] = {3, 2, 1, 3, 2};
 static char PIECE_TYPE_TO_CHAR[NUM_PIECE_TYPES] = {'G', 'S', 'Q', 'A', 'B'};
+static int NUM_SPIDER_HOPS = 3;
+
 
 typedef struct {
     int x;

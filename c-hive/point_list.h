@@ -16,6 +16,8 @@
 typedef struct point_list_node {
     point* point;
     struct point_list_node* next;
+    // optional associated data
+    int* payload;
 } point_list_node;
 
 point* create_point(point p);
@@ -24,17 +26,23 @@ point_list_node* create_list(point* p);
 
 point_list_node* create_list_and_point(point p);
 
+point_list_node* create_list_with_payload_and_point(point p, int payload);
+
 void destroy_node_and_point(point_list_node* node);
 
 void destroy_list(point_list_node* head);
 
-point_list_node* prepend_point_list(point_list_node* head, point* p);
+point_list_node* prepend_point_to_list(point_list_node* head, point* p);
+
+void append_node_to_list(point_list_node** head, point_list_node* p);
 
 point_list_node* append_list(point_list_node* list_1, point_list_node* list_2);
 
 point_list_node* get_tail(point_list_node* head);
 
 bool contains_point(point_list_node* head, point p);
+
+bool contains_point_and_payload(point_list_node* head, point p, int payload);
 
 bool intersect(point_list_node* list_1, point_list_node* list_2);
 

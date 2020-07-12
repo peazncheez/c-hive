@@ -21,6 +21,7 @@ point_list_node* create_list(point* p) {
     point_list_node* new_head = malloc(sizeof(point_list_node));
     new_head->point = p;
     new_head->next = NULL;
+    new_head->payload = NULL;
     return new_head;
 }
 
@@ -28,9 +29,29 @@ point_list_node* create_list_and_point(point p) {
     return create_list(create_point(p));
 }
 
+point_list_node* create_list_with_payload_and_point(point p, int payload) {
+    point_list_node* node = create_list_and_point(p);
+    int* payload_ptr = malloc(sizeof(int));
+    *payload_ptr = payload;
+    node->payload = payload_ptr;
+    return node;
+}
+
 void destroy_node_and_point(point_list_node* node) {
-    free(node->point);
-    free(node);
+    if (node != NULL) {
+        point* p = node->point;
+        if (p != NULL) {
+            free(p);
+            p = NULL;
+        }
+        int* payload = node->payload;
+        if (payload != NULL) {
+            free(payload);
+            payload = NULL;
+        }
+        free(node);
+        node = NULL;
+    }
 }
 
 void destroy_list(point_list_node* head) {
@@ -42,10 +63,19 @@ void destroy_list(point_list_node* head) {
 }
 
 // returns new head
-point_list_node* prepend_point_list(point_list_node* head, point* p) {
+point_list_node* prepend_point_to_list(point_list_node* head, point* p) {
     point_list_node* new_head = create_list(p);
     new_head->next = head == NULL ? NULL : head;
     return new_head;
+}
+
+void append_node_to_list(point_list_node** head, point_list_node* new_tail) {
+    if (*head == NULL) {
+        *head = new_tail;
+    } else {
+        point_list_node* old_tail = get_tail(*head);
+        old_tail->next = new_tail;
+    }
 }
 
 point_list_node* append_list(point_list_node* list_1, point_list_node* list_2) {
@@ -87,6 +117,17 @@ bool contains_point(point_list_node* head, point p) {
     return false;
 }
 
+bool contains_point_and_payload(point_list_node* head, point p, int payload) {
+    point_list_node* cur_node = head;
+    while (cur_node != NULL) {
+        if (is_equal(*(cur_node->point), p) && payload == *(cur_node->payload)) {
+            return true;
+        }
+        cur_node = cur_node->next;
+    }
+    return false;
+}
+
 // returns true if the two lists have a non-empty intersection (have at least one element in common)
 bool intersect(point_list_node* list_1, point_list_node* list_2) {
     if (list_1 == NULL || list_2 == NULL) {
@@ -108,7 +149,7 @@ point_list_node* intersect_lists(point_list_node* list_1, point_list_node* list_
     while (list_1 != NULL) {
         point cur_point = *(list_1->point);
         if (contains_point(list_2, cur_point)) {
-            new_head = prepend_point_list(new_head, create_point(cur_point));
+            new_head = prepend_point_to_list(new_head, create_point(cur_point));
         }
         list_1 = list_1->next;
     }
@@ -136,7 +177,7 @@ point_list_node* exclude_nodes_with_point(point_list_node* head, point p) {
     while (cur_node != NULL) {
         point cur_point = *(cur_node->point);
         if (!is_equal(cur_point, p)) {
-            new_head = prepend_point_list(new_head, create_point(cur_point));
+            new_head = prepend_point_to_list(new_head, create_point(cur_point));
         }
         cur_node = cur_node->next;
     }
@@ -163,7 +204,7 @@ point_list_node* to_point_list(piece* pieces, int num_pieces) {
         piece cur_piece = *(pieces + i);
         point* cur_point = cur_piece.point;
         if (cur_point != NULL) {
-            point_list = prepend_point_list(point_list, cur_point);
+            point_list = prepend_point_to_list(point_list, cur_point);
         }
     }
     return point_list;

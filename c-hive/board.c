@@ -23,18 +23,18 @@ void print_board(piece* pieces, int num_pieces) {
     int max_x = INT_MIN;
     int max_y = INT_MIN;
     
-    piece* placed_pieces[num_pieces];
+    piece placed_pieces[num_pieces];
     int num_placed_pieces = 0;
     
     for (cur_piece_index = 0; cur_piece_index < num_pieces; cur_piece_index++) {
-        piece* cur_piece = (pieces + cur_piece_index);
+        piece cur_piece = *(pieces + cur_piece_index);
         // not yet placed
-        if (cur_piece->point == NULL) {
+        if (cur_piece.point == NULL) {
             continue;
         }
         
-        int cur_x = cur_piece->point->x;
-        int cur_y = cur_piece->point->y;
+        int cur_x = cur_piece.point->x;
+        int cur_y = cur_piece.point->y;
         placed_pieces[num_placed_pieces++] = cur_piece;
         
         min_x = min_x > cur_x ? cur_x : min_x;
@@ -68,7 +68,7 @@ void print_board(piece* pieces, int num_pieces) {
     }
         
     for (cur_piece_index = 0; cur_piece_index < num_placed_pieces; cur_piece_index++) {
-        piece* cur_piece = *(placed_pieces + cur_piece_index);
+        piece* cur_piece = (placed_pieces + cur_piece_index);
         // piece positions can go negative, but our strings are always 0-indexed so we must
         // translate
         board_strings[cur_piece->point->y - min_display_y][cur_piece->point->x - min_display_x] = PIECE_TYPE_TO_CHAR[cur_piece->type];
@@ -130,7 +130,7 @@ point_list_node* get_neighbors(point p) {
     
     for (int cur_board_dir = 0; cur_board_dir < NUM_BOARD_DIR; cur_board_dir++) {
         point* neighbor = translate_point(p, cur_board_dir);
-        neighbor_list_head = prepend_point_list(neighbor_list_head, neighbor);
+        neighbor_list_head = prepend_point_to_list(neighbor_list_head, neighbor);
     }
     
     return neighbor_list_head;
@@ -152,41 +152,61 @@ point_list_node* get_possible_beetle_moves(point p) {
     return get_neighbors(p);
 }
 
-// spider_path contains all points on the path leading up to p, includes the initial position (if p != initial position), and must be sorted from most recent to least recent
-point_list_node* get_possible_spider_moves_helper(point p, point_list_node* spider_path, point_list_node* other_piece_positions) {
-    if (size(spider_path) == 3) {
-        return create_list_and_point(p);
+//
+/**
+ path_so_far contains all points on the path leading up to p, includes the initial position (if p != initial position), and must be sorted from most recent to least recent
+ 
+ N.b. the visited set tracks spaces we've seen before on any branch of the DFS. When there is a bound to the number of hops a piece can make (i.e. the spider), each node in this list uses the payload field to track the number of hops when this space was visited before. If the space has been visited with the same payload, it's not visited again. We must add this payload check to the spider's case as well because re-visiting the same space with a different number of hops taken to arrive at that space will produce different moves.
+ When there isn't a bound to the number of hops a piece can make (i.e. the ant), the payload is always set to 0. In that case, if we've ever seen this space before, it's safe to ignore it in all future encounters.
+ 
+ Note that the visited check is different from the backtracking check - the visited check applies to all branches of the DFS, while backtracking just applies to path_so_far. Both checks are necessary - the above payload logic and their treatment of the initial position are two reasons why.
+ */
+point_list_node* get_possible_moves_helper(point p, point_list_node* path_so_far, point_list_node** visited, point_list_node* other_piece_positions, int min_hops_inclusive, int max_hops_inclusive) {
+    point_list_node* next_moves = NULL;
+
+    int hops_so_far = size(path_so_far);
+    if (hops_so_far >= min_hops_inclusive) {
+        next_moves = create_list_and_point(p);
+        if (hops_so_far == max_hops_inclusive) {
+            return next_moves;
+        }
     }
     
-    point_list_node* next_moves = NULL;
     
     point_list_node* occupied_neighbors_at_prev_space = get_occupied_neighbors(p, other_piece_positions);
-    point_list_node* next_spider_spaces = get_neighbors(p);
-    point_list_node* cur_space = next_spider_spaces;
+    point_list_node* next_hop_spaces = get_neighbors(p);
+    point_list_node* cur_space = next_hop_spaces;
     while (cur_space != NULL) {
         point cur_point = *(cur_space->point);
+        
         point_list_node* occupied_neighbors = get_occupied_neighbors(cur_point, other_piece_positions);
+        // see comment on method for decsription of payload use
+        int visited_node_payload = max_hops_inclusive == INT_MAX ? 0 : hops_so_far;
         
         /**
          Space is ineligible if:
-         1) it backtracks on the path the spider is taking as part of this move
+         1) it backtracks on the path the piece is taking as part of this move
          2) another piece is present at this location
-         3) this space doesn't have any neighbors (spider must remain in direct contact with the hive)
-         4) it does not remain in direct contact with a piece that it was previously in direct contact with (we use this as a way to tell if the spider is "moving around" its neighbors instead of jumping "across" and acquiring an entirely new set of neighbors)
+         3) this space doesn't have any neighbors (piece must remain in direct contact with the hive)
+         4) it does not remain in direct contact with a piece that it was previously in direct contact with (we use this as a way to tell if the piece is "moving around" its neighbors instead of jumping "across" and acquiring an entirely new set of neighbors)
+         5) it hasn't been visited before on any branch of the DFS with the same payload - see comment on method for full description of payload and visited set
          */
-        if (!contains_point(spider_path, cur_point)
+        if (!contains_point(path_so_far, cur_point)
             && !contains_point(other_piece_positions, cur_point)
             && !is_empty(occupied_neighbors)
-            // TODO - deal with empty list intersection
-            && intersect(occupied_neighbors_at_prev_space, occupied_neighbors)) {
+            && intersect(occupied_neighbors_at_prev_space, occupied_neighbors)
+            && !contains_point_and_payload(*visited, cur_point, visited_node_payload)) {
+
+            point_list_node* visited_node = create_list_with_payload_and_point(cur_point, visited_node_payload);
+            append_node_to_list(visited, visited_node);
             
-            point_list_node* new_spider_path = prepend_point_list(spider_path, create_point(p));
-            point_list_node* next_moves_for_space = get_possible_spider_moves_helper(cur_point, new_spider_path, other_piece_positions);
+            point_list_node* new_path_so_far = prepend_point_to_list(path_so_far, create_point(p));
+            point_list_node* next_moves_for_space = get_possible_moves_helper(cur_point, new_path_so_far, visited, other_piece_positions, min_hops_inclusive, max_hops_inclusive);
             
             // maybe faster to prepend to next_moves?
-            next_moves = append_list(next_moves, next_moves_for_space);
+             next_moves = append_list(next_moves, next_moves_for_space);
             
-            destroy_node_and_point(new_spider_path);
+            destroy_node_and_point(new_path_so_far);
         }
         
         destroy_list(occupied_neighbors);
@@ -194,13 +214,31 @@ point_list_node* get_possible_spider_moves_helper(point p, point_list_node* spid
     }
     
     destroy_list(occupied_neighbors_at_prev_space);
-    destroy_list(next_spider_spaces);
+    destroy_list(next_hop_spaces);
     return next_moves;
+}
+
+point_list_node* get_possible_ant_moves(point p, point_list_node* all_piece_positions) {
+    point_list_node* other_piece_positions = exclude_nodes_with_point(all_piece_positions, p);
+    point_list_node** visited = malloc(sizeof(point_list_node*));
+    *visited = NULL;
+    
+    point_list_node* moves = get_possible_moves_helper(p, NULL, visited, other_piece_positions, 1, INT_MAX);
+    
+    destroy_list(*visited);
+    free(visited);
+    destroy_list(other_piece_positions);
+    return moves;
 }
 
 point_list_node* get_possible_spider_moves(point p, point_list_node* all_piece_positions) {
     point_list_node* other_piece_positions = exclude_nodes_with_point(all_piece_positions, p);
-    point_list_node* moves = get_possible_spider_moves_helper(p, NULL, other_piece_positions);
+    point_list_node** visited = malloc(sizeof(point_list_node*));
+    *visited = NULL;
+    
+    point_list_node* moves = get_possible_moves_helper(p, NULL, visited, other_piece_positions, NUM_SPIDER_HOPS, NUM_SPIDER_HOPS);
+    destroy_list(*visited);
+    free(visited);
     destroy_list(other_piece_positions);
     return moves;
 }
@@ -224,7 +262,7 @@ point_list_node* get_possible_grasshopper_moves(point p, point_list_node* all_pi
                     point* move = malloc(sizeof(point));
                     move->x = cur_hop_pos.x;
                     move->y = cur_hop_pos.y;
-                    possible_moves = prepend_point_list(possible_moves, move);
+                    possible_moves = prepend_point_to_list(possible_moves, move);
                 }
                 break;
             }
@@ -247,6 +285,8 @@ point_list_node* get_possible_moves(piece* piece_to_move, point_list_node* all_p
             return get_possible_grasshopper_moves(piece_to_move_pos, all_piece_positions);
         case SPIDER:
             return get_possible_spider_moves(piece_to_move_pos, all_piece_positions);
+        case ANT:
+            return get_possible_ant_moves(piece_to_move_pos, all_piece_positions);
         default:
             return NULL;
     }
