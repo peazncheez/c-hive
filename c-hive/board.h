@@ -49,4 +49,8 @@ int size(point_list_node* list);
 
 bool contains_point(point_list_node* head, point p);
 
+bool* get_hive_cut_pieces(piece* pieces);
+
+bool** to_adjacency_matrix(piece* pieces);
+
 #endif /* board_h */

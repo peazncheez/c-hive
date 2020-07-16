@@ -29,11 +29,15 @@ point_list_node* create_list_and_point(point p) {
     return create_list(create_point(p));
 }
 
-point_list_node* create_list_with_payload_and_point(point p, int payload) {
-    point_list_node* node = create_list_and_point(p);
+void add_payload(point_list_node* node, int payload) {
     int* payload_ptr = malloc(sizeof(int));
     *payload_ptr = payload;
     node->payload = payload_ptr;
+}
+
+point_list_node* create_list_with_payload_and_point(point p, int payload) {
+    point_list_node* node = create_list_and_point(p);
+    add_payload(node, payload);
     return node;
 }
 
@@ -157,6 +161,16 @@ point_list_node* intersect_lists(point_list_node* list_1, point_list_node* list_
     return new_head;
 }
 
+point_list_node* find_first(point_list_node* list, point p) {
+    while (list != NULL) {
+        if (is_equal(*(list->point), p)) {
+            return list;
+        }
+        list = list->next;
+    }
+    return NULL;
+}
+
 // returns the next node after cur_node
 point_list_node* remove_node_and_get_next(point_list_node* prev_node, point_list_node* cur_node) {
     if (prev_node == NULL) {
@@ -205,6 +219,7 @@ point_list_node* to_point_list(piece* pieces, int num_pieces) {
         point* cur_point = cur_piece.point;
         if (cur_point != NULL) {
             point_list = prepend_point_to_list(point_list, cur_point);
+            add_payload(point_list, cur_piece.piece_id);
         }
     }
     return point_list;

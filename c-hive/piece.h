@@ -40,7 +40,7 @@ typedef struct {
 typedef struct {
     color color;
     piece_type type;
-    int piece_num;
+    int piece_id;
     // null for not yet placed
     point* point;
 } piece;
@@ -48,6 +48,8 @@ typedef struct {
 void destroy_piece(piece* piece);
 
 piece* get_initial_pieces(void);
-int get_starting_piece_count_per_color(void);
+int get_count_per_color(void);
+int get_num_pieces(void);
+
 
 #endif /* piece_h */

@@ -375,15 +375,74 @@ bool test_ant_moves() {
     return true;
 }
 
+bool test_get_adjacency_matrix() {
+    printf("Testing get adjacency matrix\n");
+    piece* pieces = get_initial_pieces();
+    pieces[0].point = & (point){.x = 1, .y = 1};
+    pieces[5].point = & (point){.x = 1, .y = 2};
+    pieces[6].point = & (point){.x = 2, .y = 2};
+    pieces[11].point = & (point){.x = 2, .y = 3};
+    pieces[14].point = & (point){.x = 3, .y = 4};
+
+    bool** adjacency_matrix = to_adjacency_matrix(pieces);
+    for (int i = 0; i < get_num_pieces(); i++) {
+        for (int j = 0; j < get_num_pieces(); j++) {
+            bool expected_adjacent = (i == 0 && j == 5) || (j == 0 && i ==5)
+            || (i == 0 && j == 6) || (j == 0 && i == 6)
+            || (i == 5 && j == 6) || (j == 5 && i == 6)
+            || (i == 6 && j == 11) || (j == 6 && i == 11)
+            || (i == 11 && j == 14) || (j == 11 && i == 14);
+            if (!adjacency_matrix[i][j] == expected_adjacent) {
+                printf ("expected adj %d %d to be %s but was %s", i, j, expected_adjacent ? "true" : "false", adjacency_matrix[i][j] ? "true" : "false");
+                for (int k = 0; k < get_num_pieces(); k++) {
+                    free(adjacency_matrix[k]);
+                }
+                free(adjacency_matrix);
+                return false;
+            }
+                        
+        }
+    }
+
+    for (int k = 0; k < get_num_pieces(); k++) {
+        free(adjacency_matrix[k]);
+    }
+    free(adjacency_matrix);
+    return true;
+}
+
+bool test_get_hive_cut_pieces() {
+    printf("Testing get hive cut pieces\n");
+    piece* pieces = get_initial_pieces();
+    pieces[0].point = & (point){.x = 1, .y = 1};
+    pieces[5].point = & (point){.x = 1, .y = 2};
+    pieces[6].point = & (point){.x = 2, .y = 2};
+    pieces[11].point = & (point){.x = 2, .y = 3};
+    pieces[14].point = & (point){.x = 3, .y = 4};
+    
+    bool* cut_pieces = get_hive_cut_pieces(pieces);
+    for (int i = 0; i < get_num_pieces(); i++) {
+        bool expected_cut = i == 6 || i == 11;
+        if (expected_cut != cut_pieces[i]) {
+            printf("expected piece %d to be %s but was %s", i, expected_cut ? "true" : "false", cut_pieces[i] ? "true" : "false");
+            free(cut_pieces);
+            return false;
+        }
+    }
+    
+    free(cut_pieces);
+    return true;
+}
+
 int main(int argc, const char * argv[]) {
     printf("Starting tests\n");
     point_list_node* a = NULL;
     printf("%d", &a);
     piece* initial_pieces = get_initial_pieces();
-    int num_pieces = get_starting_piece_count_per_color()*NUM_COLORS;
+    int num_pieces = get_num_pieces();
     
     int loop;
-    for (loop = 0; loop < get_starting_piece_count_per_color()*NUM_COLORS; loop++) {
+    for (loop = 0; loop < num_pieces; loop++) {
         printf("piece: %d %d %d\n", initial_pieces[loop].color, initial_pieces[loop].point, initial_pieces[loop].type);
     }
 
@@ -411,6 +470,14 @@ int main(int argc, const char * argv[]) {
     }
     
     if(!test_ant_moves()) {
+        return 1;
+    }
+    
+    if(!test_get_adjacency_matrix()) {
+        return 1;
+    }
+    
+    if(!test_get_hive_cut_pieces()) {
         return 1;
     }
     

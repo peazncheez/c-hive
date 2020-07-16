@@ -273,6 +273,136 @@ point_list_node* get_possible_grasshopper_moves(point p, point_list_node* all_pi
     return possible_moves;
 }
 
+// TODO handle beetles and z axis and shit
+// n.b. not adjacent to self
+bool** to_adjacency_matrix(piece* pieces) {
+    int num_pieces = get_num_pieces();
+    bool** adjacency_matrix = malloc(sizeof(bool*) * num_pieces);
+    for (int i = 0; i < num_pieces; i++) {
+        adjacency_matrix[i] = malloc(sizeof(bool) * num_pieces);
+        for (int j = 0; j < num_pieces; j++) {
+            adjacency_matrix[i][j] = false;
+        }
+    }
+    
+    point_list_node* placed_piece_positions = to_point_list(pieces, num_pieces);
+    point_list_node* cur_piece = placed_piece_positions;
+    while (cur_piece != NULL) {
+        int cur_piece_id = *(cur_piece->payload);
+        point_list_node* neighbors = get_neighbors(*(cur_piece->point));
+        
+        point_list_node* cur_neighbor = neighbors;
+        while (cur_neighbor != NULL) {
+            // TODO find first may not be appropriate since there may be more adjacent pieces because of stacking, need to decide how to handle that...
+            point_list_node* piece_at_neighbor = find_first(cur_piece->next, *(cur_neighbor->point));
+            if (piece_at_neighbor != NULL) {
+                int other_piece_id = *(piece_at_neighbor->payload);
+                adjacency_matrix[cur_piece_id][other_piece_id] = true;
+                adjacency_matrix[other_piece_id][cur_piece_id] = true;
+            }
+            cur_neighbor = cur_neighbor->next;
+        }
+        
+        free(neighbors);
+        cur_piece = cur_piece->next;
+    }
+    
+    free(placed_piece_positions);
+    return adjacency_matrix;
+}
+
+int get_num_adjacent(bool** adjacency_matrix, int piece_id) {
+    int count = 0;
+    for (int i = 0; i < get_num_pieces(); i++) {
+        if (adjacency_matrix[piece_id][i]) {
+            count++;
+        }
+    }
+    return count;
+}
+
+void cut_pieces_helper(int cur_piece_id, int cur_discovery_time, bool** adjacency_matrix, bool** visited, int **low, int **discovery_time, int **parent, bool** cut_pieces) {
+    (*visited)[cur_piece_id] = true;
+    (*discovery_time)[cur_piece_id] = cur_discovery_time;
+    (*low)[cur_piece_id] = cur_discovery_time;
+
+    int num_children = 0;
+    int min_child_low = INT_MAX;
+    for (int i = 0; i < get_num_pieces(); i++) {
+        if (adjacency_matrix[cur_piece_id][i]) {
+            int adjacent_piece_id = i;
+            bool is_parent = !(*visited)[adjacent_piece_id];
+            
+            if (is_parent) {
+                (*parent)[adjacent_piece_id] = cur_piece_id;
+                num_children++;
+                cut_pieces_helper(adjacent_piece_id, cur_discovery_time + 1, adjacency_matrix, visited, low, discovery_time, parent, cut_pieces);
+            }
+            
+            int adjacent_discovery_time = (*discovery_time)[adjacent_piece_id];
+            int adjacent_low = (*low)[adjacent_piece_id];
+            int cur_low = (*low)[cur_piece_id];
+            int cur_parent = (*parent)[cur_piece_id];
+            
+            if (is_parent) {
+                min_child_low = adjacent_low < min_child_low ? adjacent_low : min_child_low;
+            }
+            
+            if (cur_discovery_time < adjacent_discovery_time) {
+                // forward edge
+                (*low)[cur_piece_id] = adjacent_low < cur_low ? adjacent_low : cur_low;
+            } else if (cur_parent != adjacent_piece_id) {
+                // back edge
+                (*low)[cur_piece_id] = adjacent_discovery_time < cur_low ? adjacent_discovery_time : cur_low;
+            }
+        }
+    }
+    
+    if (cur_discovery_time == 0) {
+        (*cut_pieces)[cur_piece_id] = num_children > 1;
+    } else {
+        (*cut_pieces)[cur_piece_id] = min_child_low != INT_MAX && min_child_low > cur_discovery_time;
+    }    
+}
+
+// returns array of length num_placed_pieces,
+bool* get_hive_cut_pieces(piece* pieces) {
+    int num_pieces = get_num_pieces();
+    
+    bool* cut_pieces = malloc(num_pieces*sizeof(bool));
+    bool** adjacency_matrix = to_adjacency_matrix(pieces);
+    bool* visited = malloc(num_pieces*sizeof(bool));
+    int* parent = malloc(num_pieces*sizeof(int));
+    int* low = malloc(num_pieces*sizeof(int));
+    int* discovery_time = malloc(num_pieces*sizeof(int));
+    for (int i = 0; i < num_pieces; i++) {
+        cut_pieces[i] = false;
+        visited[i] = false;
+        parent[i] = -1;
+        low[i] = -1;
+        discovery_time[i] = -1;
+    }
+    
+    for (int i = 0; i < num_pieces; i++) {
+        if (pieces[i].point == NULL) {
+            continue;
+        }
+        if (!visited[i]) {
+            cut_pieces_helper(i, 0, adjacency_matrix, &visited, &low, &discovery_time, &parent, &cut_pieces);
+        }
+    }
+    
+    free(visited);
+    free(parent);
+    free(low);
+    free(discovery_time);
+    for (int i = 0; i < num_pieces; i++) {
+        free(adjacency_matrix[i]);
+    }
+    free(adjacency_matrix);
+    return cut_pieces;
+}
+
 
 point_list_node* get_possible_moves(piece* piece_to_move, point_list_node* all_piece_positions) {
     point piece_to_move_pos = *(piece_to_move->point);

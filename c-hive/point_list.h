@@ -48,6 +48,8 @@ bool intersect(point_list_node* list_1, point_list_node* list_2);
 
 point_list_node* intersect_lists(point_list_node* list_1, point_list_node* list_2);
 
+point_list_node* find_first(point_list_node* list, point p);
+
 //point_list_node* remove_node_and_get_next(point_list_node* prev_node, point_list_node* cur_node);
 
 point_list_node* exclude_nodes_with_point(point_list_node* head, point p);
